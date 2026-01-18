@@ -3,16 +3,19 @@
 This project allows users to **chat with their PDF files** using natural language. It uses **LangChain**, **Google Gemini (Generative AI)**, **FAISS** for vector search, and **Streamlit** for the frontend interface.
 
 ---
+🚀 Features
 
-## 🚀 Features
+📄 Upload and process multiple PDF files
 
-- 📄 Upload and process multiple PDF files
-- 🔍 Ask questions and get detailed answers based on PDF content
-- 🤖 Uses Google's Gemini (`gemini-pro`) for LLM responses
-- 🔗 Powered by LangChain and FAISS for efficient vector-based document search
-- 🧠 Chunking and semantic embedding for accurate context
+🔍 Ask questions and receive detailed, context-aware answers from the uploaded PDFs
 
----
+🤖 Powered by LLaMA-3.1 (hosted on Groq) for fast and high-quality LLM responses
+
+🔗 Uses LangChain + FAISS for efficient vector-based document retrieval
+
+🧠 Semantic chunking and embeddings using HuggingFace sentence transformers for accurate context matching
+
+☁️ Fully deployable on Streamlit Cloud (no local models required)
 
 ## 🛠️ Tech Stack
 
