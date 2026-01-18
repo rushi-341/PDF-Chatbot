@@ -1,7 +1,9 @@
-# 💬 Chat with PDF using Gemini (Google Generative AI + LangChain)
+# 💬 Chat with PDF using LLaMA-3.1 (Groq + LangChain)
 
-This project allows users to **chat with their PDF files** using natural language. It uses **LangChain**, **Google Gemini (Generative AI)**, **FAISS** for vector search, and **Streamlit** for the frontend interface.
+This project allows users to chat with their PDF files using natural language queries.
+It is built using LangChain, LLaMA-3.1 (hosted on Groq) for large language model inference, FAISS for vector-based document retrieval, and Streamlit for an interactive web interface.
 
+The application follows a Retrieval-Augmented Generation (RAG) approach, enabling accurate and context-aware answers strictly based on the content of the uploaded PDF documents.
 ---
 🚀 Features
 
@@ -19,13 +21,21 @@ This project allows users to **chat with their PDF files** using natural languag
 
 ## 🛠️ Tech Stack
 
-- Python
-- Streamlit
-- LangChain
-- Google Generative AI (Gemini API)
-- FAISS (vector database)
-- PyPDF2
-- dotenv
+Python
+
+Streamlit
+
+LangChain
+
+Groq API (LLaMA-3.1)
+
+FAISS (vector database)
+
+HuggingFace Sentence Transformers (embeddings)
+
+PyPDF
+
+python-dotenv
 
 ---
 
@@ -33,8 +43,9 @@ This project allows users to **chat with their PDF files** using natural languag
 
 ```bash
 chat_with_pdf/
-├── chat.py                # Main Streamlit app
-├── faiss_index/           # Saved vector store (auto-created)
-├── .env                   # Stores Google API key
-├── README.md              # Project description
-└── requirements.txt       # List of dependencies
+├── chat.py                # Main Streamlit application
+├── faiss_index/           # FAISS vector store (auto-created after processing PDFs)
+├── .env                   # Stores Groq API key (local use only, not committed)
+├── .gitignore             # Excludes .env and other sensitive files
+├── README.md              # Project documentation
+└── requirements.txt       # Python dependencies
