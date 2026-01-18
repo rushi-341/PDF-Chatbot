@@ -1,106 +1,173 @@
 import streamlit as st
-from PyPDF2 import PdfReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-import google.generativeai as genai
-from langchain.vectorstores import FAISS
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.chains.question_answering import load_qa_chain
-from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 
+from pypdf import PdfReader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+from langchain_groq import ChatGroq
+from langchain.chains.question_answering import load_qa_chain
+from langchain.prompts import PromptTemplate
+
+# --------------------------------------------------
+# Load environment variables
+# --------------------------------------------------
 load_dotenv()
-os.getenv("GOOGLE_API_KEY")
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    st.error(
+        "❌ GROQ_API_KEY not found.\n\n"
+        "• Local: add it to a `.env` file\n"
+        "• Streamlit Cloud: add it in App → Settings → Secrets"
+    )
+    st.stop()
 
-
-
-
-
+# --------------------------------------------------
+# PDF text extraction
+# --------------------------------------------------
 def get_pdf_text(pdf_docs):
-    text=""
+    text = ""
     for pdf in pdf_docs:
-        pdf_reader= PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text+= page.extract_text()
-    return  text
+        reader = PdfReader(pdf)
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text
+    return text
 
-
-
+# --------------------------------------------------
+# Text chunking
+# --------------------------------------------------
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
-    chunks = text_splitter.split_text(text)
-    return chunks
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1200,
+        chunk_overlap=250
+    )
+    return splitter.split_text(text)
 
+# --------------------------------------------------
+# Create vector store (FREE embeddings)
+# --------------------------------------------------
+def create_vector_store(chunks):
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    db = FAISS.from_texts(chunks, embedding=embeddings)
+    db.save_local("faiss_index")
 
-def get_vector_store(text_chunks):
-    embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    vector_store.save_local("faiss_index")
-
-
-def get_conversational_chain():
-
+# --------------------------------------------------
+# Groq QA Chain (VERBOSE OUTPUT)
+# --------------------------------------------------
+def get_qa_chain():
     prompt_template = """
-    Answer the question as detailed as possible from the provided context, make sure to provide all the details, if the answer is not in
-    provided context just say, "answer is not available in the context", don't provide the wrong answer\n\n
-    Context:\n {context}?\n
-    Question: \n{question}\n
+    You are an expert assistant.
 
-    Answer:
+    Using ONLY the information from the context below,
+    answer the question in a clear, detailed, and well-structured manner.
+
+    Guidelines:
+    - Explain concepts step by step when applicable
+    - Use multiple paragraphs if needed
+    - Use bullet points or numbered lists where helpful
+    - Do NOT add information outside the context
+    - If the answer is not present in the context, say:
+      "Answer is not available in the context."
+
+    Context:
+    {context}
+
+    Question:
+    {question}
+
+    Detailed Answer:
     """
 
-    model = ChatGoogleGenerativeAI(model="gemini-pro",
-                             temperature=0.3)
+    llm = ChatGroq(
+        api_key=GROQ_API_KEY,
+        model="llama-3.1-8b-instant",
+        temperature=0.4,
+        max_tokens=1024
+    )
 
-    prompt = PromptTemplate(template = prompt_template, input_variables = ["context", "question"])
-    chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
+    prompt = PromptTemplate(
+        template=prompt_template,
+        input_variables=["context", "question"]
+    )
 
-    return chain
+    return load_qa_chain(llm, chain_type="stuff", prompt=prompt)
 
+# --------------------------------------------------
+# Answer user question
+# --------------------------------------------------
+def answer_question(question):
+    if not os.path.exists("faiss_index"):
+        st.warning("⚠️ Please upload and process PDFs first.")
+        return
 
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
 
-def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
-    
-    new_db = FAISS.load_local("faiss_index", embeddings)
-    docs = new_db.similarity_search(user_question)
+    db = FAISS.load_local(
+        "faiss_index",
+        embeddings,
+        allow_dangerous_deserialization=True
+    )
 
-    chain = get_conversational_chain()
+    # Retrieve more context for richer answers
+    docs = db.similarity_search(question, k=8)
 
-    
+    chain = get_qa_chain()
+
     response = chain(
-        {"input_documents":docs, "question": user_question}
-        , return_only_outputs=True)
+        {"input_documents": docs, "question": question},
+        return_only_outputs=True
+    )
 
-    print(response)
-    st.write("Reply: ", response["output_text"])
+    st.subheader("📌 Answer")
+    st.write(response["output_text"])
 
-
-
-
+# --------------------------------------------------
+# Streamlit UI
+# --------------------------------------------------
 def main():
-    st.set_page_config("Chat PDF")
-    st.header("Chat with PDF using Gemini💁")
+    st.set_page_config(
+        page_title="Chat with PDF (Groq LLaMA-3.1)",
+        layout="wide"
+    )
 
-    user_question = st.text_input("Ask a Question from the PDF Files")
+    st.title("📄 Chat with PDF using LLaMA-3.1 (Groq)")
+
+    user_question = st.text_input("Ask a question from the uploaded PDFs")
 
     if user_question:
-        user_input(user_question)
+        answer_question(user_question)
 
     with st.sidebar:
-        st.title("Menu:")
-        pdf_docs = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True)
+        st.header("Upload PDFs")
+
+        pdf_docs = st.file_uploader(
+            "Upload one or more PDF files",
+            accept_multiple_files=True,
+            type=["pdf"]
+        )
+
         if st.button("Submit & Process"):
-            with st.spinner("Processing..."):
-                raw_text = get_pdf_text(pdf_docs)
-                text_chunks = get_text_chunks(raw_text)
-                get_vector_store(text_chunks)
-                st.success("Done")
+            if not pdf_docs:
+                st.warning("Please upload at least one PDF.")
+            else:
+                with st.spinner("Processing PDFs..."):
+                    raw_text = get_pdf_text(pdf_docs)
+                    if not raw_text.strip():
+                        st.error("No readable text found in the PDFs.")
+                        return
+                    chunks = get_text_chunks(raw_text)
+                    create_vector_store(chunks)
+                    st.success("✅ PDFs processed successfully!")
 
-
-
+# --------------------------------------------------
 if __name__ == "__main__":
     main()
