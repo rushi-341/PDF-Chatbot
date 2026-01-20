@@ -8,7 +8,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 from langchain_groq import ChatGroq
-from langchain.chains import load_qa_chain
+from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 
 # --------------------------------------------------
@@ -107,18 +107,8 @@ def answer_question(question):
         st.warning("⚠️ Please upload and process PDFs first.")
         return
 
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
-
-    db = FAISS.load_local(
-        "faiss_index",
-        embeddings,
-        allow_dangerous_deserialization=True
-    )
-
-    # Retrieve more context for richer answers
-    docs = db.similarity_search(question, k=8)
+    db = load_vector_store()
+    docs = db.similarity_search(question, k=4)
 
     chain = get_qa_chain()
 
@@ -129,7 +119,6 @@ def answer_question(question):
 
     st.subheader("📌 Answer")
     st.write(response["output_text"])
-
 # --------------------------------------------------
 # Streamlit UI
 # --------------------------------------------------
