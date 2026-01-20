@@ -1,14 +1,14 @@
-streamlit==1.31.0
+streamlit
 
-pypdf==4.1.0
-python-dotenv==1.0.1
+pypdf
+python-dotenv
 
 langchain==0.1.16
 langchain-community==0.0.34
 langchain-text-splitters==0.0.1
 langchain-groq==0.1.4
 
-groq==0.9.0
+groq
 
-faiss-cpu==1.7.4
-sentence-transformers==2.2.2
+faiss-cpu
+sentence-transformers
